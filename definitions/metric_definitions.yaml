@@ -1,0 +1,192 @@
+# Metric definitions: one entry per metric VERSION.
+# All data is synthetic. See docs/data_contract.md for the full contract.
+# Every entry carries all 10 fields; unused fields are explicit null.
+# Derived metrics are never stored. Their definition text lists the metrics
+# they depend on; they are non-comparable across any period where an input
+# metric changed version.
+
+metrics:
+  # ---- Listings: affected by the 2025-07-01 definition change ----
+  - metric: total_live_listings
+    definition: >-
+      Listings live at end of day: published and not expired, removed or
+      sold/let. (v1, original definition)
+    type: stock
+    aggregation_over_time: average of daily values
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: total_live_listings
+    definition: >-
+      Listings live at end of day under the stricter v2 rule: as v1, and also
+      excluding listings that are stale (no update in the last 90 days).
+    type: stock
+    aggregation_over_time: average of daily values
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2025-07-01
+    change_note: >-
+      Synthetic definition change: stale listings no longer count as live.
+      Series are not comparable across 2025-07-01.
+
+  - metric: newly_added_listings
+    definition: >-
+      Listings first published during the day. (v1, original definition)
+    type: flow
+    aggregation_over_time: sum
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: newly_added_listings
+    definition: >-
+      Listings first published during the day that qualify as live under the
+      v2 live-listing rule.
+    type: flow
+    aggregation_over_time: sum
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2025-07-01
+    change_note: >-
+      Follows the synthetic live-listing definition change. Series are not
+      comparable across 2025-07-01.
+
+  - metric: quality_score_sum
+    definition: >-
+      Sum of per-listing quality scores (0-100, synthetic) over listings live
+      at end of day under v1. Numerator of avg_quality_score.
+    type: stock
+    aggregation_over_time: average of daily values
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: quality_score_sum
+    definition: >-
+      Sum of per-listing quality scores (0-100, synthetic) over listings live
+      at end of day under the v2 live-listing rule. Numerator of
+      avg_quality_score.
+    type: stock
+    aggregation_over_time: average of daily values
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2025-07-01
+    change_note: >-
+      Follows the synthetic live-listing definition change, since the set of
+      scored listings changes. Series are not comparable across 2025-07-01.
+
+  # ---- Customers: unaffected ----
+  - metric: active_customers
+    definition: >-
+      Customers with a live contract, or within the 30-day grace period after
+      it ends. No listing threshold. Independent of supply_daily.
+    type: stock
+    aggregation_over_time: average of daily values
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: new_customers
+    definition: >-
+      Customers starting a contract during the day, including customers
+      returning after their grace period has lapsed. A renewal inside the
+      grace window is not new.
+    type: flow
+    aggregation_over_time: sum
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: churned_customers
+    definition: >-
+      Customers whose grace period lapses during the day without a renewal.
+      Counted on the lapse day, so it lags the real contract end by about 30
+      days. History is never revised.
+    type: flow
+    aggregation_over_time: sum
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  # ---- Revenue: unaffected ----
+  - metric: subscription_revenue
+    definition: >-
+      Billed amounts, contract fee only, summed over the calendar month.
+      Add-on products are out of scope.
+    type: flow
+    aggregation_over_time: sum
+    aggregation_over_dimensions: sum
+    numerator: null
+    denominator: null
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  # ---- Derived (never stored) ----
+  - metric: avg_quality_score
+    definition: >-
+      Derived ratio, computed after roll-up. Depends on: quality_score_sum,
+      total_live_listings. Non-comparable across 2025-07-01 because both
+      inputs changed version.
+    type: derived
+    aggregation_over_time: computed after roll-up, never averaged
+    aggregation_over_dimensions: computed after roll-up, never averaged
+    numerator: SUM(quality_score_sum)
+    denominator: SUM(total_live_listings)
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: revenue_per_customer
+    definition: >-
+      Derived ratio, monthly, computed after roll-up. Depends on:
+      subscription_revenue, active_customers. Comparable whenever both
+      inputs are unchanged.
+    type: derived
+    aggregation_over_time: computed after roll-up, never averaged
+    aggregation_over_dimensions: computed after roll-up, never averaged
+    numerator: subscription_revenue for the month
+    denominator: average daily active_customers in the same month
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
+
+  - metric: churn_rate
+    definition: >-
+      Derived ratio, computed after roll-up. Depends on: churned_customers,
+      active_customers. Named exception to the average rule for stocks: the
+      denominator is the opening stock, not an average. Churn lags the real
+      contract end by about 30 days.
+    type: derived
+    aggregation_over_time: computed after roll-up, never averaged
+    aggregation_over_dimensions: computed after roll-up, never averaged
+    numerator: SUM(churned_customers) over the period
+    denominator: active_customers at end of the day before the period starts
+    owner: analytics lead
+    effective_from: 2024-01-01
+    change_note: null
